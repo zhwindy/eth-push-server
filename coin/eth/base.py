@@ -110,7 +110,7 @@ class EtParser:
         :return:
         """
         # 延迟3个块获取
-        return self.rpc.eth_block_number() - 3
+        return self.rpc.eth_block_number() - 5
 
     def _is_token(self, _input):
         if _input.startswith(self.abi_deal):

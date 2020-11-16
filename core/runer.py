@@ -116,9 +116,9 @@ class CoinPush(Single):
                 data["value"] = eval(data["value"])
                 data["Fee"] = eval(data["Fee"])
             msg_id = self.db.rocket.push_data(data)
-            G_LOGGER.info("Process:{} kafka push success, msg_id={}, push_data={}".format(os.getpid(), msg_id, data))
+            G_LOGGER.info("success, msg_id={}, data={}".format(msg_id, data))
         except Exception as e:
-            G_LOGGER.error("Process:{} kafka push failed, push_data={}, error={}".format(os.getpid(), data, str(e)))
+            G_LOGGER.error("failed, data={}, error={}".format(data, str(e)))
 
     def push_sync(self, height, num, rollback_count=0):
         block_num = height
@@ -141,9 +141,6 @@ class CoinPush(Single):
     def push_main(self, save_redis=False):
         """
         推送处理
-        :param save_redis: 待处理的区块先存入redis，先不推送
-        1. 默认save_redis为False直接推送
-        2. 为True则将待处理区块存入redis
         """
         if not self.coin_name:
             raise Exception("unknow coin name")
@@ -173,7 +170,6 @@ class CoinPush(Single):
                     G_LOGGER.info("redis_save_pending_block: {}".format(self.block_num))
                     self.db.redis.save_pending_block(self.block_num)
             else:
-                diff_num = 10
                 G_LOGGER.info("最新高度{},已同步高度{},本次需要同步块数{}".format(newest_block_height, current_height, diff_num))
                 self.push_sync(current_height + 1, diff_num, rollback_count=self.rollback_count)
         except ForkError as e:
