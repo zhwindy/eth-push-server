@@ -115,9 +115,8 @@ class CoinPush(Single):
                 data["time"] = eval(data["time"]) * 1000
                 data["value"] = eval(data["value"])
                 data["Fee"] = eval(data["Fee"])
-
-            partition, offset = self.db.kafka.send(data)
-            G_LOGGER.info("Process:{} kafka push success, partition={}, offset={}, push_data={}".format(os.getpid(), partition, offset, data))
+            msg_id = self.db.rocket.push_data(data)
+            G_LOGGER.info("Process:{} kafka push success, msg_id={}, push_data={}".format(os.getpid(), msg_id, data))
         except Exception as e:
             G_LOGGER.error("Process:{} kafka push failed, push_data={}, error={}".format(os.getpid(), data, str(e)))
 

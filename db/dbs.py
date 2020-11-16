@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import json
 from functools import partial
-from db import mysql, redis_db, kafka
+from db import mysql, redis_db, kafka, rocketmq
 from core.globals import G_LOGGER
 from lib.tool import Single, CachedProperty, seperate_big_list
 
@@ -12,11 +12,11 @@ class Db(Single):
     def __init__(self, cfg):
         # 只实例化一次
         if not Db.__first_init:
-            self.cfg = cfg
             self.coin = cfg.coin.coin_dict.get("name")
+            mode = cfg.coin.coin_dict.get("mode")
             # self.mysql = mysql.MySQLDB(cfg)
             self.redis = redis_db.RedisDB(cfg)
-            # self.kafka = kafka.KafkaQueue(cfg)
+            self.rocket = rocketmq.RocketMQ(mode)
             Db.__first_init = True
 
     def get_basic(self, coin_name):
