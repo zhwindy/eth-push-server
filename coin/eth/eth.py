@@ -144,8 +144,6 @@ class EthParser(EtParser):
                         if 'contract' in tx.keys():
                             mq_tx["Contract"] = tx["contract"]
                         push_list.append(mq_tx)
-                # 缓存已推送的区块高度和hash
-                self.db.redis.save_cache_block(hex_to_int(block["number"]), block["hash"])
                 return push_list
             except ForkError as ex:
                 raise ForkError(ex.height, ex.msg)
