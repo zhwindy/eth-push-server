@@ -244,10 +244,10 @@ class RedisDB(RedisExtendMixin, MempoolRedisSetMixin, MempoolRedisStringMixin):
         """获取basic信息"""
         basic = self.client.get(self.basic_key)
         if not basic:
-            item = '{"id": 0, "current_height": 0, "newest_height": 0, "update_time": 0}'
+            item = '{"current_height": 0, "newest_height": 0, "update_time": 0}'
             self.client.set(self.basic_key, item)
             basic = self.client.get(self.basic_key)
-        return basic
+        return json.loads(basic)
 
     def update_basic(self, item):
         """更新basic信息"""
@@ -281,37 +281,3 @@ class RedisDB(RedisExtendMixin, MempoolRedisSetMixin, MempoolRedisStringMixin):
     def del_cache_block(self, block_height):
         """根据block_height获取块内容"""
         self.client.delete(f"{self.coin}:{block_height}")
-
-
-class RedisLock(RedisDB):
-    """redis推送锁"""
-    def __init__(self, key, expires=1000):
-        super().__init__(G_CFG)
-        self.key = key
-        self.expires = expires
-
-    def __enter__(self):
-        try:
-            while True:
-                expires = get_now() + self.expires + 1
-                if self.client.setnx(self.key, expires):
-                    return self
-                current_value = int(self.client.get(self.key))
-                getset_value = self.client.getset(self.key, expires)
-                if current_value and get_now() > current_value == getset_value:
-                    return self
-                time.sleep(0.9)
-        except Exception as e:
-            G_LOGGER.debug(f"获取锁出现异常异常原因：{str(e)}")
-            self.del_key()
-        except KeyboardInterrupt:
-            G_LOGGER.debug(f"强制终止了程序")
-            self.del_key()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.del_key()
-
-    def del_key(self):
-        if self.client and self.client.exists(self.key):
-            G_LOGGER.debug(f"释放推送锁")
-            self.client.delete(self.key)

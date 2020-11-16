@@ -21,35 +21,11 @@ class CoinPush(Single):
         self.coin = coin
         self.coin_name = G_CFG.coin.coin_dict.get("name")
         self.process = G_CFG.coin.coin_dict.get("process")
-        G_CFG.mq.mq_dict["start_block"] = self.coin.newest_height()
         self.db = Db(G_CFG)
         self.redis_conn = self.db.redis.client
         self.mail = Email(G_CFG)
         self.mode = G_CFG.coin.coin_dict["mode"]
         self.rollback_count = None
-
-    def dingding_alarm(self, content):
-        url = 'https://oapi.dingtalk.com/robot/send?access_token=c76999baf53003d1217f06ff7236f1e54ab657909b88b4a3907eeb1fa747a57c'
-        data = {
-            'msgtype': 'text',
-            'text': {
-                'content': '【推送报警】{}'.format(content)
-            }
-        }
-        requests.post(url=url, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-
-    def mq_push(self, data):
-        """
-        将数据推入mq中
-        """
-        json_data = json.dumps(data)
-        if self.db.mq_post(data):
-            # 推送成功记录日志
-            G_LOGGER.info(f"Process:{os.getpid()} rabbitmq push success-{json_data}")
-            pass
-        else:
-            # 推送失败记录日志
-            G_LOGGER.info(f"Process:{os.getpid()} rabbitmq push failed-{json_data}")
 
     def kafka_push(self, data):
         try:
@@ -96,15 +72,11 @@ class CoinPush(Single):
             partition, offset = self.db.kafka.send(data)
             G_LOGGER.info("Process:{} kafka push success, partition={}, offset={}, push_data={}".format(os.getpid(), partition, offset, data))
         except Exception as e:
-            # 线上服务，如果推送失败，钉钉报警
-            if G_CFG.coin.coin_dict["mode"] == 'prod':
-                self.dingding_alarm('kafka push failed, push_data={}, error={}'.format(data, str(e)))
             G_LOGGER.error("Process:{} kafka push failed, push_data={}, error={}".format(os.getpid(), data, str(e)))
 
     def push_sync(self, height, num, rollback_count=0):
         block_num = height
         try:
-            rollback_save_tag = 0
             for block_num in range(height, height + num):
                 self.block_num = block_num
                 # 获取待推送数据
@@ -112,28 +84,6 @@ class CoinPush(Single):
                 G_LOGGER.info("当前推送区块高度为:{}, push_counts={}".format(self.block_num, len(push_data)))
                 for data in push_data:
                     self.kafka_push(data)
-                    if False and rollback_count and rollback_count > 0:
-                        # 交易推送完成后，把交易的ID存放到redis缓存中
-                        key = data["Type"] + ":" + data["Txid"]
-                        self.redis_conn.setex(key, 1, 3600)
-                        G_LOGGER.info("tx{} success push to redis".format(key))
-                # 回溯指定区块再次推送
-                if False and rollback_count and rollback_count > 0:
-                    rollback_block_num = block_num - int(rollback_count)
-                    if rollback_block_num > 0:
-                        push_data = self.coin.push_list(rollback_block_num, rollback=True, rollback_count=rollback_count)
-                        G_LOGGER.info("回溯推送区块高度为:{}, block_num={}, rollback_count={}, push_counts={}".format(rollback_block_num, block_num, rollback_count, len(push_data)))
-                        for data in push_data:
-                            # 回溯推送时，先在redis缓存中查找交易ID是否被推送过，如果被推送过就不需要再次推送了
-                            key = data["Type"] + ":" + data["Txid"]
-                            if self.redis_conn.get(key):
-                                G_LOGGER.info("tx:{}已推 ignore".format(key))
-                                continue
-                            self.kafka_push(data)
-                        rollback_save_tag += 1 if (rollback_save_tag < 1000) else 1000
-                        # 初次启动超过回溯块数后cache初始化完毕,需要保存补推记录
-                        if rollback_save_tag > rollback_count:
-                            self.db.save_transaction(self.coin_name, push_data)
                 time.sleep(0.5)
         except ForkError as e:
             raise ForkError(e.height, e.msg)
@@ -157,9 +107,8 @@ class CoinPush(Single):
             return True
 
         save_num = current_height = basic_info["current_height"]
-        self.rollback_count = basic_info.get("rollback_count", 0)
         if save_redis:
-            newest_block_height = self.coin.newest_height() - self.rollback_count
+            newest_block_height = self.coin.newest_height()
             diff_num = newest_block_height - current_height
         else:
             newest_block_height = self.coin.newest_height()
@@ -178,8 +127,7 @@ class CoinPush(Single):
                     G_LOGGER.info("redis_save_pending_block: {}".format(self.block_num))
                     self.db.redis.save_pending_block(self.block_num)
             else:
-                step = int(G_CFG.mq.mq_dict.get("step"))
-                diff_num = step if diff_num > step else diff_num
+                diff_num = 10
                 G_LOGGER.info("最新高度{},已同步高度{},本次需要同步块数{}".format(newest_block_height, current_height, diff_num))
                 self.push_sync(current_height + 1, diff_num, rollback_count=self.rollback_count)
         except ForkError as e:
