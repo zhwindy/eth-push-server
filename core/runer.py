@@ -74,6 +74,53 @@ class CoinPush(Single):
         except Exception as e:
             G_LOGGER.error("Process:{} kafka push failed, push_data={}, error={}".format(os.getpid(), data, str(e)))
 
+    def rocket_push(self, data):
+        try:
+            # 兼容处理eth_multi和其他币种两套数据模板
+            if "Type" in data:
+                # 把空字符串、None值转化为0，避免eval处理出错
+                if not data["Amount"]:
+                    data["Amount"] = 0
+                if not data["Fee"]:
+                    data["Fee"] = 0
+                if not data["BlockNumber"]:
+                    data["BlockNumber"] = 0
+                if not data["Time"]:
+                    data["Time"] = 0
+
+                # eval可以把小数型字符串和16进制字符串转换为小数和整数类型
+                if isinstance(data["Amount"], str):
+                    data["Amount"] = eval(data["Amount"])
+                if isinstance(data["Fee"], str):
+                    data["Fee"] = eval(data["Fee"])
+                if isinstance(data["BlockNumber"], str):
+                    data["BlockNumber"] = eval(data["BlockNumber"])
+                if isinstance(data["Time"], str):
+                    data["Time"] = eval(data["Time"])
+
+                # 根据每个币种精度，转化为整型数值
+                if data["Type"] in ["EOS"]:
+                    data["Amount"] = Decimal(str(data["Amount"])) * pow(10, 4)
+                    data["Fee"] = Decimal(str(data["Fee"])) * pow(10, 4)
+                if data["Type"] in ["IOST"]:
+                    data["Amount"] = Decimal(str(data["Amount"])) * pow(10, 8)
+                    data["Fee"] = Decimal(str(data["Fee"])) * pow(10, 8)
+
+                # 去除小数位无效的0
+                data["Amount"] = int(data["Amount"])
+                data["Fee"] = int(data["Fee"])
+                data["BlockNumber"] = int(data["BlockNumber"])
+                data["Time"] = int(data["Time"]) * 1000
+            else:
+                data["time"] = eval(data["time"]) * 1000
+                data["value"] = eval(data["value"])
+                data["Fee"] = eval(data["Fee"])
+
+            partition, offset = self.db.kafka.send(data)
+            G_LOGGER.info("Process:{} kafka push success, partition={}, offset={}, push_data={}".format(os.getpid(), partition, offset, data))
+        except Exception as e:
+            G_LOGGER.error("Process:{} kafka push failed, push_data={}, error={}".format(os.getpid(), data, str(e)))
+
     def push_sync(self, height, num, rollback_count=0):
         block_num = height
         try:
@@ -83,7 +130,7 @@ class CoinPush(Single):
                 push_data = self.coin.push_list(block_num, rollback_count=rollback_count)
                 G_LOGGER.info("当前推送区块高度为:{}, push_counts={}".format(self.block_num, len(push_data)))
                 for data in push_data:
-                    self.kafka_push(data)
+                    self.rocket_push(data)
                 time.sleep(0.5)
         except ForkError as e:
             raise ForkError(e.height, e.msg)

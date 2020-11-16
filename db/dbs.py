@@ -10,7 +10,7 @@ class Db(Single):
     __first_init = False
 
     def __init__(self, cfg):
-        # 只实例化一次，多次的情况下，mq会出现卡死的情况
+        # 只实例化一次
         if not Db.__first_init:
             self.cfg = cfg
             self.coin = cfg.coin.coin_dict.get("name")

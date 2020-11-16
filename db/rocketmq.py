@@ -4,18 +4,18 @@ import sys
 import json
 import time
 from mq_http_sdk.mq_exception import MQExceptionBase
-from mq_http_sdk.mq_producer import *
-from mq_http_sdk.mq_client import *
+from mq_http_sdk.mq_producer import TopicMessage
+from mq_http_sdk.mq_client import MQClient
 
 HTTP_ENDPOINT = "http://1219848471387692.mqrest.cn-qingdao-public.aliyuncs.com"
 ACCESS_KEY = "LTAI4G7JnJiQfa6yqVBzSjH7"
 SECRET_KEY = "Y7vWpIRTvVSwgfs8Svj91YNyrBm9gh"
 
-#初始化 client
+# 初始化 client
 mq_client = MQClient(HTTP_ENDPOINT, ACCESS_KEY, SECRET_KEY)
-#所属的 Topic
+# 所属的 Topic
 topic_name = "Test"
-#Topic所属实例ID，默认实例为空None
+# Topic所属实例ID，默认实例为空None
 instance_id = "MQ_INST_1219848471387692_BXVpFo7E"
 
 producer = mq_client.get_producer(instance_id, topic_name)
