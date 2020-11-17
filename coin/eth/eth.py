@@ -96,6 +96,7 @@ class EthParser(EtParser):
                         tx["to"] = _to if _to != "0x" else f"0x{'0'*40}"
                         tx["value"] = _value if _value != "0x" else "0x0"
                     elif multi_send_token:
+                        continue
                         _len = self.multi_abi_len
                         _del_0x_input = del_0x(_input)
                         if multi_send_token == 'create':
