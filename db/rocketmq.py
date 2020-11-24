@@ -10,19 +10,19 @@ from mq_http_sdk.mq_client import MQClient
 
 class RocketMQ(object):
 
-    ACCESS_KEY = "LTAI4G7JnJiQfa6yqVBzSjH7"
-    SECRET_KEY = "Y7vWpIRTvVSwgfs8Svj91YNyrBm9gh"
+    ACCESS_KEY = ""
+    SECRET_KEY = ""
 
     def __init__(self, mode):
         self.mode = mode
         if mode == "dev":
-            HTTP_ENDPOINT = "http://1219848471387692.mqrest.cn-qingdao-public.aliyuncs.com"
+            HTTP_ENDPOINT = ""
             TOPIC_NAME = "Test"
-            INSTANCE_ID = "MQ_INST_1219848471387692_BXVpFo7E"
+            INSTANCE_ID = ""
         else:
-            HTTP_ENDPOINT = "http://1219848471387692.mqrest.cn-beijing-internal.aliyuncs.com"
-            TOPIC_NAME = "tx_block"
-            INSTANCE_ID = "MQ_INST_1219848471387692_BXYuxFp1"
+            HTTP_ENDPOINT = ""
+            TOPIC_NAME = ""
+            INSTANCE_ID = ""
 
         self.mq_client = MQClient(HTTP_ENDPOINT, self.ACCESS_KEY, self.SECRET_KEY)
         self.producer = self.mq_client.get_producer(INSTANCE_ID, TOPIC_NAME)
